@@ -12,6 +12,11 @@ function H = calculateTransform(I1, I2)
     % Compute matches
     matches = matchSIFT(d1', d2', 0.8);
 
+    % Extract the matched points.
+    p1 = k1(matches(1, :), 1:2);
+    p2 = k2(matches(2, :), 1:2);
+    
     % Run RANSAC to get the best model.
-    H = ransac(k1', k2', matches);
+%     H = ransac(k1', k2', matches);
+    H = computeEssentialMatrix(p1, p2);
 end
