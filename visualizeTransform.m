@@ -2,7 +2,8 @@
 % results.
 function visualizeTransform(I1, I2)
     % Calculate the transform between I1 and I2.
-    H = calculateTransform(I1, I2);
+    [H, E] = calculateTransform(I1, I2);
 
-    disp(H);
+    % Visualize the epipolar lines.
+    epipolarMatchGUI(I1, I2, E);
 end

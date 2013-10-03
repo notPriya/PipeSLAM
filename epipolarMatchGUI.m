@@ -71,10 +71,10 @@ end
 subplot(1,2,2)
 hold on;
 
-[x2, y2] = epipolarCorrespondence(I1, I2, F, x, y)
+[x2, y2] = epipolarCorrespondence(I1, I2, F, x, y);
 scatter(x2, y2, 10, 'r');
-coordsIM1 = [coordsIM1; x,y]
-coordsIM2 = [coordsIM2; x2, y2]
+coordsIM1 = [coordsIM1; x,y];
+coordsIM2 = [coordsIM2; x2, y2];
 
 end
 
