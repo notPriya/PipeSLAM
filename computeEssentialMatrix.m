@@ -5,18 +5,20 @@ function [H, E] = computeEssentialMatrix(x1, x2)
     [F, inliers] = estimateFundamentalMatrix(x1, x2, 'Method', 'RANSAC');
     
     % Random estimate of the K matrix.
-%     K = [645.24 0 661.96; 0 645.24 194.13; 0 0 1];
-    K = eye(3);
+    K = [645.24 0 661.96; 0 645.24 194.13; 0 0 1];
     E = K'*F*K;
     
     % Decompose E into a rotation and translation components.
     M = decomposeE(E);
     
-    % Compute relative scale are rescale the translation matrix.
-    H = [M(:, :, 1); 0 0 0 1];
+    % Rescale translation into meters and put it into a transformation
+    % matrix format.
+    M(:, 4, :) = M(:, 4, :)/10;
+    H = [M(:, :, 2); 0 0 0 1];
 end
 
 function M2s = decomposeE(E)
+% Enforce that E only has 2 eigenvalues and that they are the same one.
 [U,S,V] = svd(E);
 m = (S(1,1)+S(2,2))/2;
 E = U*[m,0,0;0,m,0;0,0,0]*V';

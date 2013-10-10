@@ -1,7 +1,7 @@
 function [bestH, inliers] = ransac(keypoints1, keypoints2, matches)
     % Number of iterations. Determine later.
     n = 7;  % We need at least 4 correspondences to determine H.
-    w = .35; % Made up value.
+    w = .3; % Percentage of inliers.
     T = ceil(log(1-0.9)/log(1-w^n));
     
     % Save off matches so it is easier to use.
@@ -53,14 +53,13 @@ function [bestH, inliers] = ransac(keypoints1, keypoints2, matches)
     
     % Check if there is more than one candidate model.
     if length(indices) > 1
-        % Pick the model with the largest determinant. (Furthest from
-        % singularity).
-        determinant = zeros(length(indices));
+        % Pick the model with the largest trace, closest to identity.
+        trace = zeros(length(indices));
         for i=1:length(indices)
             H = H_val{indices(i)};
-            determinant(i) = det(H);
+            trace(i) = trace(H(1:3, 1:3));
         end
-        [~, ind] = max(determinant);
+        [~, ind] = max(trace);
         index = indices(ind);
     end
     

@@ -1,4 +1,4 @@
-function H = calculateTransform(I1, I2)
+function [H, E] = calculateTransform(I1, I2)
     % Extract features and descriptors for the first image.
     im1 = preprocessImage(I1);
     k1 = calculateFeatures(im1);
@@ -18,5 +18,5 @@ function H = calculateTransform(I1, I2)
     
     % Run RANSAC to get the best model.
 %     H = ransac(k1', k2', matches);
-    H = computeEssentialMatrix(p1, p2);
+    [H, E] = computeEssentialMatrix(p1, p2);
 end
