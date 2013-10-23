@@ -220,6 +220,8 @@ pip-log.txt
 
 # Matlab temp files
 *.asv
+# Matlab data files
+*.mat
 
 #############
 ## Junk Folders
@@ -229,3 +231,5 @@ old code/
 results/
 old data/
 *_result.avi
+*.jpg
+.gitignore

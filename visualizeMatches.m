@@ -1,5 +1,5 @@
 %Runs SIFT matching and visualizes the results.
-function visualizeMatches(I1, I2)
+function visualizeMatches(I1, I2, t)
     % Extract features and descriptors for the first image.
     im1 = preprocessImage(I1);
     k1 = calculateFeatures(im1);
@@ -24,7 +24,7 @@ function visualizeMatches(I1, I2)
     %collect the correspondences more conveniently
     corresp1 = k1(matches(1,:), 1:2)';
     corresp2 = k2(matches(2,:), 1:2)';
-    for i=1:size(matches,2)
+    for i=1:min(size(matches,2), t)
         plot(   [corresp1(1,i),corresp2(1,i)+w1],...
                 [corresp1(2,i),corresp2(2,i)]);
     end
