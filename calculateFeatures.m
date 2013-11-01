@@ -1,6 +1,11 @@
 % Finds the important features in the image.
 % Uses the built in Matlab SURF feature detector.
 function [keypoints] = calculateFeatures(I, type)
+
+if (nargin < 2)
+    type = 1;
+end
+
 if (type == 1)
     
     % Detect the edges in the image.
@@ -14,6 +19,11 @@ if (type == 1)
     % Throw out keypoints that are in the odometer bounding box.
     i = find((keypoints(:,1) < 385 | keypoints(:,1) > 581) | ...
              (keypoints(:,2) < 42 | keypoints(:,2) > 77));
+    keypoints = keypoints(i, :);
+    
+    % Throw out keypoints that are too close to the edge.
+    i = find((keypoints(:,1) > 9 & keypoints(:,1) < (floor(size(I, 1)/9)-1)*9) & ...
+             (keypoints(:,2) > 9 & keypoints(:,2) < (floor(size(I, 2)/9)-1)*9));
     keypoints = keypoints(i, :);
     
     % Subsample points from the edges.

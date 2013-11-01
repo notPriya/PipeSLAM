@@ -3,12 +3,12 @@ function visualizeMatches(I1, I2, t)
     % Extract features and descriptors for the first image.
     im1 = preprocessImage(I1);
     k1 = calculateFeatures(im1);
-    d1 = calculateDescriptors(im1, k1);
+    d1 = calculateDescriptors(im1, k1, I1);
     
     % Extract features and descriptors for the second image.
     im2 = preprocessImage(I2);
     k2 = calculateFeatures(im2);
-    d2 = calculateDescriptors(im2, k2);
+    d2 = calculateDescriptors(im2, k2, I2);
 
     %compute matches
     matches = matchSIFT(d1', d2', 0.8);
