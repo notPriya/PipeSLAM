@@ -222,6 +222,8 @@ pip-log.txt
 *.asv
 # Matlab data files
 *.mat
+# Matlab mex files
+*.mexa64
 
 #############
 ## Junk Folders
