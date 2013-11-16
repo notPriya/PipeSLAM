@@ -1,6 +1,8 @@
 function [matches] = matchSIFT(D1, D2, t)
+    load('covariance.mat');
+    
     % Compute distances from everything in D1 to everything in D2
-    distances = pdist2(D1', D2');
+    distances = pdist2(D1', D2', 'mahalanobis', S);
     
     % Compute the nearest neighbor
     [min_val, min_ind] = min(distances, [], 2);
