@@ -1,12 +1,12 @@
-function [H, E] = calculateTransform(I1, I2)
+function [H, E] = calculateTransform(I1, I2, odom_rect)
     % Extract features and descriptors for the first image.
     im1 = preprocessImage(I1);
-    k1 = calculateFeatures(im1);
+    k1 = calculateFeatures(im1, odom_rect);
     d1 = calculateDescriptors(im1, k1, I1);
     
     % Extract features and descriptors for the second image.
     im2 = preprocessImage(I2);
-    k2 = calculateFeatures(im2);
+    k2 = calculateFeatures(im2, odom_rect);
     d2 = calculateDescriptors(im2, k2, I2);
 
     % Compute matches
