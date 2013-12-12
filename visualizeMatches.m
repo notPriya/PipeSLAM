@@ -15,7 +15,7 @@ function visualizeMatches(I1, I2, t, odom_rect)
     d2 = calculateDescriptors(im2, k2, I2);
 
     %compute matches
-    matches = matchSIFT(d1', d2', 0.8);
+    matches = matchSIFT(d1', d2', 0.85, 3);
 
     %concatenate the images
     [h1,w1] = size(im1);

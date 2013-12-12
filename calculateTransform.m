@@ -10,7 +10,7 @@ function [H, E] = calculateTransform(I1, I2, odom_rect)
     d2 = calculateDescriptors(im2, k2, I2);
 
     % Compute matches
-    matches = matchSIFT(d1', d2', 0.8);
+    matches = matchSIFT(d1', d2', 0.85, 3);
 
     % Extract the matched points.
     p1 = k1(matches(1, :), 1:2);

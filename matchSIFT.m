@@ -33,8 +33,12 @@ else
     if type == 2
         load('itml_results.mat');
         S = A{A_ind};
+    elseif type == 4
+        load('svm_linear_S.mat');
+    elseif type == 5
+        load('svm_rbf_S.mat');
     else
-        load('diag_covariance.mat');
+        load('full_covariance.mat');
     end
     
     % Compute distances from everything in D1 to everything in D2

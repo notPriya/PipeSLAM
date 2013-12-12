@@ -57,8 +57,6 @@ if (type == 1)
 
 else
     
-    
-
     features = detectSURFFeatures(I, 'MetricThreshold', 500);
     keypoints = features.Location;
     
@@ -66,6 +64,7 @@ else
     i = find((keypoints(:,1) < odom_rect(1) | keypoints(:,1) > odom_rect(2)) | ...
              (keypoints(:,2) < odom_rect(3) | keypoints(:,2) > odom_rect(4)));
     keypoints = keypoints(i, :);
+    
 end
 
 end
