@@ -2,7 +2,10 @@ function [H, E, F] = computeEssentialMatrix(x1, x2)
     % This computes the fundamental matrix. We need to get determine the
     % camera's internal calibration matrices in order to convert to E 
     % (E = K1' * F * K1).
-    [F, inliers] = estimateFundamentalMatrix(x1, x2, 'Method', 'RANSAC', 'NumTrials', 2000);
+%     [F, inliers] = estimateFundamentalMatrix(x1, x2, 'Method', 'RANSAC', 'NumTrials', 2000);
+    x1 = [x1'; ones(1, length(x1))];
+    x2 = [x2'; ones(1, length(x2))];
+    [F, inliers] = ransacF(x1, x2, 1000, .1);
 
     % Random estimate of the K matrix.
     K = [526.37013657 0 313.68782938; 0 526.37013657 259.01834898; 0 0 1];
