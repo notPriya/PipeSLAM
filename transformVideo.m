@@ -9,13 +9,18 @@ end_frame = 100;
 
 num_frames = end_frame - start_frame;
 
+% Get the odometry bounding box.
+imshow(frames(:,:,:,1));
+[x, y] = ginput(2);
+odom_rect = [x' y'];
+
 % Calculate the transform from one frame to the next.
 H = cell(num_frames, 1);
 E = cell(num_frames, 1);
 for i=1:num_frames
     I = frames(:,:,:,i+start_frame);
     I2 = frames(:,:,:,i+1+start_frame);
-    [H2to1, E2to1] = calculateTransform(I, I2);
+    [H2to1, E2to1] = calculateTransform(I, I2, odom_rect);
     H{i} = H2to1;
     E{i} = E2to1;
 end
