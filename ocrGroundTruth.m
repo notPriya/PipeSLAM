@@ -9,7 +9,7 @@ function ground_truth = ocrGroundTruth(frames, box)
         % Determine the boundingbox.
         imshow(frames(:,:,:,1));
         [x, y] = ginput(2);
-        box = [y x];
+        box = int32([y x]);
     end
     
     % Load templates
@@ -44,14 +44,15 @@ function ground_truth = ocrGroundTruth(frames, box)
         for n=[2 4]
             % Find the each component.
             [i,j] = find(labels==n);
+            if isempty(i)
+                continue;
+            end
             % Extract letter
             n1 = first_line(min(i):max(i),min(j):max(j));  
             % Resize letter (same size of template)
             n1 = imresize(n1,[42 24]);
-    imshow(n1);
             % Convert image to text.
             letter = read_letter(n1, num_letters);
-    disp(letter);
             %Only add numbers to the the word.
             if double(letter) > 47 && double(letter) < 58
                 % Concatenate the letter to the word.

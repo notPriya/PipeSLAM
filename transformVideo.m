@@ -1,11 +1,13 @@
 clear all;
+close all;
+clc;
 
 % Read in the video.
 obj = VideoReader('pipe1_clean.mp4');
 frames = read(obj);
 
-start_frame = 0;
-end_frame = 100;
+start_frame = 1000;
+end_frame = 1571;
 
 num_frames = end_frame - start_frame;
 
