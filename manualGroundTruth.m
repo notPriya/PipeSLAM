@@ -1,6 +1,6 @@
 % Manually input ground truth distance traveled for each frame.
 % Input: Top left coordinates, bottom right coordinates.
-function ground_truth = manualGroundTruth(frames, ground_truth, box)
+function ground_truth = manualGroundTruth(frames, box)
 
     if nargin < 3
         % Determine the boundingbox.
@@ -11,10 +11,10 @@ function ground_truth = manualGroundTruth(frames, ground_truth, box)
     end
     
     % Initialize loop variables.
-    %     ground_truth = zeros(size(frames, 4), 1);
+    ground_truth = zeros(size(frames, 4), 1);
     old_dist = NaN;
     
-    for num_frame=3177:5:size(frames, 4)
+    for num_frame=660:5:size(frames, 4)
         % Get I from the frames.
         I = frames(:, :, :, num_frame);
         

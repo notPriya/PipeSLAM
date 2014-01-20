@@ -3,16 +3,17 @@ close all;
 clc;
 
 % Read in the video.
-obj = VideoReader('pipe1_clean.mp4');
-frames = read(obj);
+% obj = VideoReader('pipe1.mp4');
+% frames = read(obj);
+load('pipe1.mat');
 
-start_frame = 1000;
-end_frame = 1571;
+start_frame = 1;
+end_frame = 670;
 
 num_frames = end_frame - start_frame;
 
 % Get the odometry bounding box.
-imshow(frames(:,:,:,1));
+imshow(frames(:,:,:,2));
 [x, y] = ginput(2);
 odom_rect = [x' y'];
 
@@ -25,6 +26,9 @@ for i=1:num_frames
     [H2to1, E2to1] = calculateTransform(I, I2, odom_rect);
     H{i} = H2to1;
     E{i} = E2to1;
+    if (mod(i, 100) == 1)
+        disp(i)
+    end
 end
 
 % Calculate the transform to frame 1.
@@ -34,7 +38,7 @@ for i=2:num_frames
     Hto1{i} = Hto1{i-1} * H{i};
 end
 
-% Draw the robot position and orientation.
+%% Draw the robot position and orientation.
 figure;
 hold on;
 for i=1:num_frames+1
@@ -58,3 +62,11 @@ end
 plot3(o(1), o(2), o(3), 'rx', 'MarkerSize', 15, 'LineWidth', 2);
 plot3(0, 0, 0, 'gx', 'MarkerSize', 15, 'LineWidth', 2);
 axis equal;
+
+%% Save off the z-coordinate positions
+
+zs = zeros(num_frames+1, 1);
+for i=2:num_frames+1
+    o = Hto1{i-1}(1:3, 4);
+    zs(i) = o(3);
+end
