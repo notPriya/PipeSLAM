@@ -16,9 +16,9 @@ function [H, E] = calculateTransform(I1, I2, odom_rect)
     p1 = k1(matches(1, :), 1:2);
     p2 = k2(matches(2, :), 1:2);
     
-    % Normalize by image coordinates to get better estimates.
-    p1 = p1./max(size(I1));
-    p2 = p2./max(size(I1));
+%     % Normalize by image coordinates to get better estimates.
+%     p1 = p1./max(size(I1));
+%     p2 = p2./max(size(I1));
     
     % Run RANSAC to get the best model.
 %     H = ransac(k1', k2', matches);
