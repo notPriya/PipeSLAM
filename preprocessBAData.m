@@ -21,7 +21,7 @@ function [K, D, M, H] = preprocessBAData(frames, odom_rect, n)
         K{i} = k1;
         D{i} = d1;
         
-        if (mod(i, 100) == 1)
+        if (mod(i, 50) == 1)
             disp(i);
         end
     end
@@ -43,11 +43,12 @@ function [K, D, M, H] = preprocessBAData(frames, odom_rect, n)
 
         % Compute the transform.
         T = computeEssentialMatrix(p1, p2);
+        T(1:3, 1:3) = eye(3);
         
         % Calculate the transform to the head.
         H{i+1} = H{i} * T;
         
-        if (mod(i, 100) == 1)
+        if (mod(i, 50) == 1)
             disp(i);
         end
     end

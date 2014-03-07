@@ -11,20 +11,22 @@ imshow(frames(:,:,:,2));
 odom_rect = [x' y'];
 close;
 
+start_frame = 10;
+
 %% Process all the images
-im1 = preprocessImage(frames(:,:,:,2));
+im1 = preprocessImage(frames(:,:,:,start_frame));
 k1 = calculateFeatures(im1, odom_rect);
 d1 = calculateDescriptors(im1, k1, frames(:,:,:,2));
 
-im2 = preprocessImage(frames(:,:,:,3));
+im2 = preprocessImage(frames(:,:,:,start_frame+1));
 k2 = calculateFeatures(im2, odom_rect);
 d2 = calculateDescriptors(im2, k2, frames(:,:,:,3));
 
-im3 = preprocessImage(frames(:,:,:,4));
+im3 = preprocessImage(frames(:,:,:,start_frame+2));
 k3 = calculateFeatures(im3, odom_rect);
 d3 = calculateDescriptors(im3, k3, frames(:,:,:,4));
 
-im4 = preprocessImage(frames(:,:,:,5));
+im4 = preprocessImage(frames(:,:,:,start_frame+3));
 k4 = calculateFeatures(im4, odom_rect);
 d4 = calculateDescriptors(im4, k4, frames(:,:,:,5));
 
@@ -120,9 +122,20 @@ fprintf(fid, '%f\n', P(:, 1:3)');
 
 fclose(fid);
 
-%% Read in results from bundle adjustment.
+%% Call the bundle adjustment function.
 
-fid = fopen('pipeline_ba_results.txt');
+! ../ceres-solver-1.8.0/bundle_adjustment.sh
+
+fid = fopen('solver_log.txt');
+
+fseek(fid, -100, 'eof');
+data = fgets(fid);
+disp(data);
+fclose(fid);
+
+% Read in results from bundle adjustment.
+
+fid = fopen('solver_results.txt');
 data = fscanf(fid, '%f\n', Inf);
 
 % Extract the camera values from the data.
@@ -143,24 +156,24 @@ H4 = AxisAngletoH(c4);
 
 % Put them in the frame of the first camera.
 H1_inv = [H1(1:3, 1:3)' -H1(1:3, 1:3)'*H1(1:3, 4)];
-H12 = H1_inv*[H2; 0 0 0 1];
-H13 = H1_inv*[H3; 0 0 0 1];
-H14 = H1_inv*[H4; 0 0 0 1];
+H12n = H2*[H1_inv; 0 0 0 1];
+H13n = H3*[H1_inv; 0 0 0 1];
+H14n = H4*[H1_inv; 0 0 0 1];
 
-%% Plot the cameras.
+% Plot the cameras.
 
 figure;
 hold on;
 axis equal;
-plot3(P(:, 1), P(:, 2), P(:, 3), 'b.');
+% plot3(P(:, 1), P(:, 2), P(:, 3), 'b.');
 colors = ['r' 'g' 'b'];
-axis([-5 5 -5 5 -5 5]);
+% axis([-5 5 -5 5 -5 5]);
 
 cameras = zeros(3, 4, 4);
 cameras(:,:,1) = eye(3, 4);
-cameras(:,:,2) = H12;
-cameras(:,:,3) = H13;
-cameras(:,:,4) = H14;
+cameras(:,:,2) = H12n;
+cameras(:,:,3) = H13n;
+cameras(:,:,4) = H14n;
 
 % Plot the new cameras.
 for i = 1:4

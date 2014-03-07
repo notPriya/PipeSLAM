@@ -1,4 +1,4 @@
-function [H12, H13, H14] = calculateBATransform(k1, d1, k2, d2, k3, d3, k4, d4, matches1, matches2, matches3, H12, H13, H14)
+function [H12, H13, H14] = calculateBATransform(k1, d1, k2, d2, k3, d3, k4, d4, matches1, matches2, matches3, H12, H13, H14, meow)
     %%%%
     % Compute matches of matches for every non-sequential pair of images.
     %%%%
@@ -93,13 +93,13 @@ function [H12, H13, H14] = calculateBATransform(k1, d1, k2, d2, k3, d3, k4, d4, 
     %%%%
     % Run the bundle adjustment script.
     %%%%
-    ! ../ceres-solver-1.8.0/bundle_adjustment.sh
+    ! ../ceres-solver-1.8.0/bundle_adjustment.sh    
     
     %%%%
     % Read in results from bundle adjustment.
     %%%%
 
-    fid = fopen('pipeline_ba_results.txt');
+    fid = fopen('solver_results.txt');
     data = fscanf(fid, '%f\n', Inf);
 
     % Extract the camera values from the data.
@@ -116,6 +116,9 @@ function [H12, H13, H14] = calculateBATransform(k1, d1, k2, d2, k3, d3, k4, d4, 
 
     % Put them in the frame of the first camera.
     H1_inv = [H1(1:3, 1:3)' -H1(1:3, 1:3)'*H1(1:3, 4)];
+%     H12 = H2*[H1_inv; 0 0 0 1];
+%     H13 = H3*[H1_inv; 0 0 0 1];
+%     H14 = H4*[H1_inv; 0 0 0 1];
     H12 = H1_inv*[H2; 0 0 0 1];
     H13 = H1_inv*[H3; 0 0 0 1];
     H14 = H1_inv*[H4; 0 0 0 1];
