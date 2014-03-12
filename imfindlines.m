@@ -32,7 +32,7 @@ function lines = imfindlines(I)
     
     % If we didnt find a backwards line throw an error.
     if isempty(backwards_line) || isempty(forwards_line)
-        disp('Error in imfindlines: Did not find two lines!');
+%         disp('Error in imfindlines: Did not find two lines!');
         lines = [];
         return;
     end
