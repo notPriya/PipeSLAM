@@ -18,18 +18,26 @@ camera_f = 364.2857;  % MAGIC
 n = size(frames, 4);
 start = 1;
 
+% Weights on the features for picking best measurement.
+weights = zeros(5, 1);
+
+% Smaller circle intialization.
+smaller_circle_radius_init = 50;  % MAGIC.
+
+% Number on the distance counter in the first frame.
+initial_camera_distance = 259;
+
 % Flag for visualizing.
 evaluation = true;
 
 % Setup stuff for making a movie.
-doMovie = true;
+doMovie = false;
 if doMovie
     % Open a movie object.
     movie = VideoWriter('pipe_joint_tracking9.avi');
     open(movie);
     evaluation = false;
 end
-
 
 % % Get the initialization of the first circle.
 % I = frames(10:end, 10:end, :, start);
@@ -40,12 +48,14 @@ end
 % % Create the first state from the initialization.
 % c = [x(1) y(1)];
 % r = sqrt( (x(1)-x(2))^2 + (y(1)-y(2))^2 );
-% init_state = [c r 0 0 0];
+% init_state = [c; r; 0; 0; 0];
 
 % Initialize loop variables.
 state = init_state;
+sigma = diag([5 5 5 0 0 0]);  % Error for the human.
 
 smaller_state = [];
+smaller_sigma = [];
 
 pos = zeros(n, 3);
 
@@ -66,17 +76,20 @@ for i = start:n
     % Track Circles         %
     %%%%%%%%%%%%%%%%%%%%%%%%%
     % Track the bigger circle.
-    [state] = visualizePipeJoints(I, state, evaluation);
+    [state, sigma] = visualizePipeJoints(I, weights, state, sigma, evaluation);
         
     % Track the smaller circle.
     if ~isempty(smaller_state)
-        [smaller_state] = visualizePipeJoints(I, smaller_state, evaluation);
+        [smaller_state, smaller_sigma] = visualizePipeJoints(I, weights, smaller_state, smaller_sigma, evaluation);
         
         % Swap the bigger and smaller states once the inner circle gets big
         % enough or the outer circle gets too big.
         if (smaller_state(3) > 80 || state(3) > 220)
             state = smaller_state;
             smaller_state = [];
+            
+            sigma = smaller_sigma;
+            smaller_sigma = [];
             
             % Change the initial pos to be that of this circle.
             initial_pos = initial_pos2;
@@ -85,8 +98,9 @@ for i = start:n
     % If the circle gets too large, its hard to track, and we want to
     % initialize the smaller circle to track.
     elseif (state(3) > 180)
-        % Initialize the smaller circle with radius 50.
-        [smaller_state] = visualizePipeJoints(I, [state(1:2) 50 0 0 0], evaluation);        
+        % Initialize the smaller circle with some radius.
+        [smaller_state, smaller_sigma] = ...
+            visualizePipeJoints(I, weights, [state(1:2) smaller_circle_radius_init 0 0 0]', sigma, evaluation);        
     end
        
     if (isempty(state))
@@ -121,7 +135,7 @@ for i = start:n
 
     % Set the initial position so that the first frame is at (0, 0, 0).
     if i==start
-        initial_pos = delta + [0 0 259];
+        initial_pos = delta + [0 0 initial_camera_distance];
     end 
          
     % Calculate the position of the camera.
