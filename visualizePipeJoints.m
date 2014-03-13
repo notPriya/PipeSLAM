@@ -3,21 +3,21 @@
 function [state_posterior, covariance_posterior, features] = visualizePipeJoints(I, weights, previous_state, previous_covariance, evaluation)
 
     % Model parameters.
-    A = eye(6);
+    A = [eye(3) eye(3); zeros(3) eye(3)];
     H = [eye(3) zeros(3)];
     
     % Uncertianty of the state (robot movement).
     Q = [0 0 0 0 0 0;
          0 0 0 0 0 0;
          0 0 0 0 0 0;
-         0 0 0 1 0 0;
-         0 0 0 0 1 0;
-         0 0 0 0 0 1];
+         0 0 0 10 0 0;
+         0 0 0 0 10 0;
+         0 0 0 0 0 10];
     
     % Uncertainty of the measurement (circle prediction).
-    R = [1 0 0;
-         0 1 0;
-         0 0 1];
+    R = [5 0 0;
+         0 5 0;
+         0 0 3];
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Time Update (Prediction)          %
