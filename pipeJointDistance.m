@@ -1,6 +1,7 @@
 % % Distance using Pipe Joint tracking.
 % close all;
 % clear all;
+% clc;
 % 
 % % Load the frames.
 % load('pipe2.mat');
@@ -12,47 +13,51 @@
 
 % Constants based on pipe video.
 pipe_radius = 5;
-camera_f = 364.2857;  % MAGIC
+camera_f = 510; %364.2857;  % MAGIC
 
 % Constants for loop.
 n = size(frames, 4);
 start = 1;
 
 % Weights on the features for picking best measurement.
-weights = zeros(5, 1);
+weights = [1.73962175432486;0.705204876297886;10;3.34010706169493;6.71403253431558];
 
 % Smaller circle intialization.
-smaller_circle_radius_init = 50;  % MAGIC.
+smaller_circle_radius_init = 55;  % MAGIC.
 
 % Number on the distance counter in the first frame.
 initial_camera_distance = 259;
 
+% Interpolation factor on estimating distance using the larger and
+% smaller tracked circles.
+alpha = .7;  % Weight on the larger circle estimation
+
 % Flag for visualizing.
-evaluation = true;
+evaluation = false;
 
 % Setup stuff for making a movie.
-doMovie = false;
+doMovie = true;
 if doMovie
     % Open a movie object.
-    movie = VideoWriter('pipe_joint_tracking9.avi');
+    movie = VideoWriter('pipe_joint_tracking10.avi');
+    movie.FrameRate = 15;
     open(movie);
     evaluation = false;
 end
 
-% % Get the initialization of the first circle.
-% I = frames(10:end, 10:end, :, start);
-% % I = frames(17:344, 10:430, :, start);
-% imshow(I);
-% [x,y] = ginput(2);
-% 
-% % Create the first state from the initialization.
-% c = [x(1) y(1)];
-% r = sqrt( (x(1)-x(2))^2 + (y(1)-y(2))^2 );
-% init_state = [c; r; 0; 0; 0];
+% Get the initialization of the first circle.
+I = frames(:, :, :, start);
+imshow(I);
+[x,y] = ginput(2);
+
+% Create the first state from the initialization.
+c = [x(1); y(1)];
+r = sqrt( (x(1)-x(2))^2 + (y(1)-y(2))^2 );
+init_state = [c; r; 0; 0; 0];
 
 % Initialize loop variables.
 state = init_state;
-sigma = diag([5 5 5 0 0 0]);  % Error for the human.
+sigma = diag([10 10 10 5 5 5]);  % Error for the human.
 
 smaller_state = [];
 smaller_sigma = [];
@@ -66,8 +71,7 @@ for i = start:n
     % Get Frame             %
     %%%%%%%%%%%%%%%%%%%%%%%%%
     % Extract the frame we want to process.
-    I = frames(10:end,10:end,:, i);
-%     I = frames(17:344, 10:430, :, i);
+    I = frames(:,:,:, i);
     if ~evaluation
         imshow(I);
     end
@@ -84,7 +88,7 @@ for i = start:n
         
         % Swap the bigger and smaller states once the inner circle gets big
         % enough or the outer circle gets too big.
-        if (smaller_state(3) > 80 || state(3) > 220)
+        if (smaller_state(3) > 80 || state(3) > 240)
             state = smaller_state;
             smaller_state = [];
             
@@ -97,10 +101,10 @@ for i = start:n
         end
     % If the circle gets too large, its hard to track, and we want to
     % initialize the smaller circle to track.
-    elseif (state(3) > 180)
+    elseif (state(3) > 200)
         % Initialize the smaller circle with some radius.
         [smaller_state, smaller_sigma] = ...
-            visualizePipeJoints(I, weights, [state(1:2) smaller_circle_radius_init 0 0 0]', sigma, evaluation);        
+            visualizePipeJoints(I, weights, [state(1:2); smaller_circle_radius_init; 0; 0; 0], sigma, evaluation);        
     end
        
     if (isempty(state))
@@ -117,8 +121,13 @@ for i = start:n
     delta = [(state(1) - size(I, 2)/2) * ratio ...
              (state(2) - size(I, 1)/2) * ratio ...
              ratio * camera_f];
+
+    % Set the initial position so that the first frame is at (0, 0, 0).
+    if i==start
+        initial_pos = delta + [0 0 initial_camera_distance];
+    end 
          
-    % Average in information from the smaller circle.
+    % Get information from the smaller circle.
     if ~isempty(smaller_state)
         ratio2 = pipe_radius/smaller_state(3);
         
@@ -133,14 +142,10 @@ for i = start:n
         end
     end
 
-    % Set the initial position so that the first frame is at (0, 0, 0).
-    if i==start
-        initial_pos = delta + [0 0 initial_camera_distance];
-    end 
          
     % Calculate the position of the camera.
     if ~isempty(smaller_state)
-        pos(i, :) = .7*(initial_pos - delta) + .3*(initial_pos2 - delta2);
+        pos(i, :) = alpha*(initial_pos - delta) + (1-alpha)*(initial_pos2 - delta2);
     else
         pos(i, :) = initial_pos - delta;
     end
@@ -151,7 +156,7 @@ for i = start:n
 
     % Add text displaying the distance traveled.
     if ~evaluation
-        text(440, 83, sprintf('%.1f ft', pos(i, 3)/10), 'FontSize', 30, 'Color', 'blue');
+        text(447, 90, sprintf('%.1f ft', pos(i, 3)/10), 'FontSize', 30, 'Color', 'blue');
     end
     
     if doMovie
@@ -162,7 +167,7 @@ for i = start:n
         close;
     else  
         if ~evaluation
-            pause(0.05);
+            drawnow;
         end
         if mod(i, 50) == 1
             disp(sprintf('Iteration %d finished', i));

@@ -15,9 +15,9 @@ function [state_posterior, covariance_posterior, features] = visualizePipeJoints
          0 0 0 0 0 10];
     
     % Uncertainty of the measurement (circle prediction).
-    R = [5 0 0;
-         0 5 0;
-         0 0 3];
+    R = [10 0 0;
+         0 10 0;
+         0 0 20];
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Time Update (Prediction)          %
@@ -33,9 +33,19 @@ function [state_posterior, covariance_posterior, features] = visualizePipeJoints
     % Take a measurement                %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%     % Smooth the image.
+%     G = fspecial('Gaussian', 10, 5);
+%     I2 = imfilter(I, G, 'replicate');
+%     [~, t] = edge(rgb2gray(I2));
+%     I2 = edge(rgb2gray(I2), 'canny', t + [.1 .3]);
+    
     % Estimate the position of the next circle based on the prior information.
     center_range = round([.95 1.05]*state_prior(3));
-    center_range = [min(-5+round(state_prior(3)), center_range(1)) max(5+round(state_prior(3)), center_range(2))];
+    center_range = [min(-5+floor(state_prior(3)), center_range(1)) max(5+ceil(state_prior(3)), center_range(2))];
+    % HACK: keep the smaller circle from collapsing into itself.
+    if (center_range(1) < 40)
+        center_range = [40 center_range(2)];
+    end
     [center, radius, metric] = imfindcircles(I, center_range, 'EdgeThreshold', .05, 'Sensitivity', .995);
     
     % Extract the features for each of the circles.
@@ -80,13 +90,18 @@ function [state_posterior, covariance_posterior, features] = visualizePipeJoints
         % Visualize the strongest circle in blue and all other circles in red.
 %         imshow(I);
         hold on;
-        plot(size(I, 2)/2, size(I, 1)/2, 'm.', 'MarkerSize', 15);
-        plot(center(1, 1), center(1, 2), 'c.', 'MarkerSize', 15);
+        % Draw the center covariance.
+        rectangle('Position', [state_posterior(1)-covariance_posterior(1,1)/2 state_posterior(2)-covariance_posterior(2,2)/2 covariance_posterior(1,1) covariance_posterior(2,2)], ...
+                  'LineWidth',2,'LineStyle','-', 'EdgeColor', 'c');
         hold off;
 
         if ~isempty(radius)
 %             viscircles(center(1:k, :), radius(1:k), 'EdgeColor', 'r');
-            viscircles(center(1, :), radius(1), 'EdgeColor', 'b');
+%             viscircles(state_prior(1:2)', state_prior(3), 'EdgeColor', 'm');
+            viscircles(center(1, :), radius(1), 'EdgeColor', 'g');
+            viscircles(state_posterior(1:2)', state_posterior(3)-covariance_posterior(3,3), 'EdgeColor', 'b','LineStyle','--');
+            viscircles(state_posterior(1:2)', state_posterior(3)+covariance_posterior(3,3), 'EdgeColor', 'b','LineStyle','--');
+            viscircles(state_posterior(1:2)', state_posterior(3), 'EdgeColor', 'b');
         end
     end
     

@@ -2,7 +2,7 @@ function [new_weights, fval, exitflag, output] = learnTrackingWeights()
 clc;
 
     % The initial set of weights to seed the optimization.
-    initial_weights = [1.18965619416973,0.773250960852945,20.44340934195353,3.44340934195353,6.44340934195353]';
+    initial_weights = [1.18965619416973,0.773250960852945,0,3.44340934195353,6.44340934195353]';
     
     % Set of frames to optimize over.
     load('pipe1.mat');
