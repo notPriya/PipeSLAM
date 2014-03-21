@@ -1,11 +1,13 @@
-% % Distance using Pipe Joint tracking.
-% close all;
-% clear all;
-% clc;
-% 
-% % Load the frames.
-% load('pipe2.mat');
+clc;
+if ~exist('frames', 'var')
+    % Distance using Pipe Joint tracking.
+    close all;
+    clear all;
+    clc;
 
+    % Load the frames.
+    load('pipe6.mat');
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%
 % Initialize variables %
@@ -17,16 +19,17 @@ camera_f = 510; %364.2857;  % MAGIC
 
 % Constants for loop.
 n = size(frames, 4);
-start = 1;
+start = 300;
 
 % Weights on the features for picking best measurement.
-weights = [1.73962175432486;0.705204876297886;10;3.34010706169493;6.71403253431558];
+weights = [1.73962175432486;0.705204876297886;0;3.34010706169493;6.71403253431558];
 
 % Smaller circle intialization.
-smaller_circle_radius_init = 55;  % MAGIC.
+small_radius_guess = 55;  % MAGIC.
+small_delta_radius_guess = .3; % MAGIC.
 
 % Number on the distance counter in the first frame.
-initial_camera_distance = 259;
+initial_camera_distance = 1339;
 
 % Interpolation factor on estimating distance using the larger and
 % smaller tracked circles.
@@ -39,28 +42,30 @@ evaluation = false;
 doMovie = true;
 if doMovie
     % Open a movie object.
-    movie = VideoWriter('pipe_joint_tracking10.avi');
+    movie = VideoWriter('pipe_joint_tracking1.avi');
     movie.FrameRate = 15;
     open(movie);
     evaluation = false;
 end
 
-% Get the initialization of the first circle.
-I = frames(:, :, :, start);
-imshow(I);
-[x,y] = ginput(2);
+if ~exist('init_state', 'var')
+    % Get the initialization of the first circle.
+    I = frames(:, :, :, start);
+    imshow(I);
+    [x,y] = ginput(2);
 
-% Create the first state from the initialization.
-c = [x(1); y(1)];
-r = sqrt( (x(1)-x(2))^2 + (y(1)-y(2))^2 );
-init_state = [c; r; 0; 0; 0];
+    % Create the first state from the initialization.
+    c = [x(1); y(1)];
+    r = sqrt( (x(1)-x(2))^2 + (y(1)-y(2))^2 );
+    init_state = [c; r; 0; 0; 0];
+end
 
 % Initialize loop variables.
-state = init_state;
-sigma = diag([10 10 10 5 5 5]);  % Error for the human.
+big_circle.state = init_state;
+big_circle.sigma = diag([10 10 10 5 5 5]);
+big_circle.real = true;
 
-smaller_state = [];
-smaller_sigma = [];
+small_circle = [];
 
 pos = zeros(n, 3);
 
@@ -73,53 +78,61 @@ for i = start:n
     % Extract the frame we want to process.
     I = frames(:,:,:, i);
     if ~evaluation
-        imshow(I);
+        imshow(frames(:,:,:, i));
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%
     % Track Circles         %
     %%%%%%%%%%%%%%%%%%%%%%%%%
     % Track the bigger circle.
-    [state, sigma] = visualizePipeJoints(I, weights, state, sigma, evaluation);
+    [big_circle] = pipeJointTracker(I, weights, big_circle, evaluation);
         
     % Track the smaller circle.
-    if ~isempty(smaller_state)
-        [smaller_state, smaller_sigma] = visualizePipeJoints(I, weights, smaller_state, smaller_sigma, evaluation);
-        
-        % Swap the bigger and smaller states once the inner circle gets big
-        % enough or the outer circle gets too big.
-        if (smaller_state(3) > 80 || state(3) > 240)
-            state = smaller_state;
-            smaller_state = [];
-            
-            sigma = smaller_sigma;
-            smaller_sigma = [];
-            
-            % Change the initial pos to be that of this circle.
-            initial_pos = initial_pos2;
-            initial_pos2 = [];
-        end
-    % If the circle gets too large, its hard to track, and we want to
-    % initialize the smaller circle to track.
-    elseif (state(3) > 200)
-        % Initialize the smaller circle with some radius.
-        [smaller_state, smaller_sigma] = ...
-            visualizePipeJoints(I, weights, [state(1:2); smaller_circle_radius_init; 0; 0; 0], sigma, evaluation);        
+    if ~isempty(small_circle)
+        % HACK: if the smaller circle is fake, make the center the same as
+        % the bigger one.
+        small_circle.state(1:2) = big_circle.state(1:2);
+        [small_circle] = pipeJointTracker(I, weights, small_circle, evaluation);
     end
-       
-    if (isempty(state))
+ 
+    %%%%%%%%%%%%%%%%%%%%%%%%%
+    % Handle new circles    %
+    %%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    % If the big circle gets too large, initialize the smaller circle.
+    if big_circle.state(3) > 200 && isempty(small_circle)
+        % Create a guess for where our circle should be.
+        small_circle_guess.state = [big_circle.state(1:2); small_radius_guess; 0; 0; small_delta_radius_guess];
+        small_circle_guess.sigma = big_circle.sigma;
+        small_circle_guess.real = false;
+        
+        % Start tracking the smaller circle.
+        [small_circle] = pipeJointTracker(I, weights, small_circle_guess, evaluation);
+    end
+    
+    if big_circle.state(3) > 240
+        % Swap the bigger and smaller circles.
+        big_circle = small_circle;
+        small_circle = [];
+                
+        % Change the initial pos to be that of this circle.
+        initial_pos = initial_pos2;
+        initial_pos2 = [];
+    end
+    
+    if (isempty(big_circle.state))
         disp('ERROR: Did not find a circle');
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%
     % Calculate Distances   %
-    %%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%    
     % Get the scale ratio.
-    ratio = pipe_radius/state(3);
+    ratio = pipe_radius/big_circle.state(3);
     
     % Convert measurements from pixels to deci-feet.
-    delta = [(state(1) - size(I, 2)/2) * ratio ...
-             (state(2) - size(I, 1)/2) * ratio ...
+    delta = [(big_circle.state(1) - size(I, 2)/2) * ratio ...
+             (big_circle.state(2) - size(I, 1)/2) * ratio ...
              ratio * camera_f];
 
     % Set the initial position so that the first frame is at (0, 0, 0).
@@ -127,12 +140,12 @@ for i = start:n
         initial_pos = delta + [0 0 initial_camera_distance];
     end 
          
-    % Get information from the smaller circle.
-    if ~isempty(smaller_state)
-        ratio2 = pipe_radius/smaller_state(3);
+    % Get distance information from the smaller circle.
+    if ~isempty(small_circle)
+        ratio2 = pipe_radius/small_circle.state(3);
         
-        delta2 = [(smaller_state(1) - size(I, 2)/2) * ratio2 ...
-                  (smaller_state(2) - size(I, 1)/2) * ratio2 ...
+        delta2 = [(small_circle.state(1) - size(I, 2)/2) * ratio2 ...
+                  (small_circle.state(2) - size(I, 1)/2) * ratio2 ...
                   ratio2 * camera_f];
           
         % Set the initial position so that the first frame is at the
@@ -144,7 +157,7 @@ for i = start:n
 
          
     % Calculate the position of the camera.
-    if ~isempty(smaller_state)
+    if ~isempty(small_circle) && small_circle.real
         pos(i, :) = alpha*(initial_pos - delta) + (1-alpha)*(initial_pos2 - delta2);
     else
         pos(i, :) = initial_pos - delta;

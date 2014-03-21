@@ -1,6 +1,6 @@
 % Tracks pipe joints using a Kalman Filter and a Hough Transform to take
 % measurements of the actual circles in the image.
-function [state_posterior, covariance_posterior, features] = visualizePipeJoints(I, weights, previous_state, previous_covariance, evaluation)
+function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, evaluation)
 
     % Model parameters.
     A = [eye(3) eye(3); zeros(3) eye(3)];
@@ -24,10 +24,10 @@ function [state_posterior, covariance_posterior, features] = visualizePipeJoints
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     % Estimate the new state based on model:  x_k = A * x_{k-1}
-    state_prior = A * previous_state;
+    state_prior = A * previous_circle.state;
 
     % Estimate the covariance:  P_k = A * P_{k-1} * A^T + Q
-    covariance_prior = A * previous_covariance * A' + Q;
+    covariance_prior = A * previous_circle.sigma * A' + Q;
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Take a measurement                %
@@ -39,70 +39,69 @@ function [state_posterior, covariance_posterior, features] = visualizePipeJoints
 %     [~, t] = edge(rgb2gray(I2));
 %     I2 = edge(rgb2gray(I2), 'canny', t + [.1 .3]);
     
-    % Estimate the position of the next circle based on the prior information.
-    center_range = round([.95 1.05]*state_prior(3));
-    center_range = [min(-5+floor(state_prior(3)), center_range(1)) max(5+ceil(state_prior(3)), center_range(2))];
-    % HACK: keep the smaller circle from collapsing into itself.
-    if (center_range(1) < 40)
-        center_range = [40 center_range(2)];
+    if previous_circle.real
+        [measurement, features] = trackJoint(state_prior, covariance_prior, weights);
+        found_circle = true;
+    else
+        [measurement, features] = initializeJoint(state_prior, covariance_prior, weights);
+        found_circle = ~isempty(measurement);
     end
-    [center, radius, metric] = imfindcircles(I, center_range, 'EdgeThreshold', .05, 'Sensitivity', .995);
-    
-    % Extract the features for each of the circles.
-    features = getTrackingFeatures(I, [center radius metric], state_prior);
-    
-    % Determine the score from the learned weights.
-    metric = features * weights;
-        
-    % Sort by the metric again.
-    if ~isempty(radius)
-        [~, ind] = sort(metric, 'descend');
-        center = center(ind, :);
-        radius = radius(ind);
-        metric = metric(ind);
-        features = features(ind, :);
-    end
-
-    % The measurement is the best circle.
-    measurement = [center(1, :) radius(1)]';
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Measurement Update (Correction)   %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+    % If there is no measurement, do not do the update step.
+    if isempty(measurement)
+        % The posteriors are the same as the priors.
+        state_posterior = state_prior;
+        covariance_posterior = covariance_prior;
+        
+        % Create a fake circle for visualization.
+        measurement = [state_prior(1:2); state_prior(3)];
+    else
+        % Determine the Kalman Gain:  K = P_k * H^T (H * P_k * H^T + R)^-1
+        kalman_gain = covariance_prior * H' / (H * covariance_prior * H' + R);
 
-    % Determine the Kalman Gain:  K = P_k * H^T (H * P_k * H^T + R)^-1
-    kalman_gain = covariance_prior * H' / (H * covariance_prior * H' + R);
+        % Update the state measure:  x_k = x_k + K (z_k - H * x_k)
+        state_posterior = state_prior + kalman_gain * (measurement - H * state_prior);
+
+        % Update the covariance measure:  P_k = (I - K*H) P_k
+        covariance_posterior = (eye(6) - kalman_gain * H) * covariance_prior;
+    end
     
-    % Update the state measure:  x_k = x_k + K (z_k - H * x_k)
-    state_posterior = state_prior + kalman_gain * (measurement - H * state_prior);
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Create the return state     %
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    % Update the covariance measure:  P_k = (I - K*H) P_k
-    covariance_posterior = (eye(6) - kalman_gain * H) * covariance_prior;
-    
+    new_circle.state = state_posterior;
+    new_circle.sigma = covariance_posterior;
+    new_circle.real = found_circle;
    
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Visualize the found circles %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Determine value of k, for visualizing.
-    k = min(3, size(radius, 1));
-
     if ~evaluation
-        % Visualize the strongest circle in blue and all other circles in red.
 %         imshow(I);
         hold on;
         % Draw the center covariance.
-        rectangle('Position', [state_posterior(1)-covariance_posterior(1,1)/2 state_posterior(2)-covariance_posterior(2,2)/2 covariance_posterior(1,1) covariance_posterior(2,2)], ...
+        rectangle('Position', ...
+                  [state_posterior(1)-covariance_posterior(1,1)/2 ...
+                   state_posterior(2)-covariance_posterior(2,2)/2 ...
+                   covariance_posterior(1,1) ...
+                   covariance_posterior(2,2)], ...
                   'LineWidth',2,'LineStyle','-', 'EdgeColor', 'c');
         hold off;
 
-        if ~isempty(radius)
-%             viscircles(center(1:k, :), radius(1:k), 'EdgeColor', 'r');
-%             viscircles(state_prior(1:2)', state_prior(3), 'EdgeColor', 'm');
-            viscircles(center(1, :), radius(1), 'EdgeColor', 'g');
+        % Draw the final circle and the one sigma bound.
+        viscircles(measurement(1:2)', measurement(3), 'EdgeColor', 'g');
+        % Dont do 1 sigma bounds for fake circles because they are often
+        % negative.
+        if found_circle
             viscircles(state_posterior(1:2)', state_posterior(3)-covariance_posterior(3,3), 'EdgeColor', 'b','LineStyle','--');
             viscircles(state_posterior(1:2)', state_posterior(3)+covariance_posterior(3,3), 'EdgeColor', 'b','LineStyle','--');
-            viscircles(state_posterior(1:2)', state_posterior(3), 'EdgeColor', 'b');
         end
+        viscircles(state_posterior(1:2)', state_posterior(3), 'EdgeColor', 'b');
     end
     
     
@@ -168,5 +167,93 @@ function [state_posterior, covariance_posterior, features] = visualizePipeJoints
         %      difference in centers of previous timestep]
         f = [new_circles(:, 4) center_distance contains_center radius_diff center_diff];
         f = log(f);  % Compute the negative log of scores.
+    end
+
+    % Finds the circles in the image that are close to the prior.
+    function [measurement, features] = trackJoint(state_prior, covariance_prior, weights)
+        % Estimate the position of the next circle based on the prior information.
+        center_range = round([.95 1.05]*state_prior(3));
+        center_range = [min(-5+floor(state_prior(3)), center_range(1)) max(5+ceil(state_prior(3)), center_range(2))];
+        % HACK: keep the smaller circle from collapsing into itself.
+        if (center_range(1) < 40)
+            center_range = [40 center_range(2)];
+        end
+        [center, radius, metric] = imfindcircles(I, center_range, 'EdgeThreshold', .05, 'Sensitivity', .995);
+
+        measurement = [];
+        features = [];
+        
+        if ~isempty(radius)
+            % Extract the features for each of the circles.
+            features = getTrackingFeatures(I, [center radius metric], state_prior);
+
+            % Determine the score from the learned weights.
+            metric = features * weights;
+
+            % Sort by the metric again.
+            if ~isempty(radius)
+                [~, ind] = sort(metric, 'descend');
+                center = center(ind, :);
+                radius = radius(ind);
+                metric = metric(ind);
+                features = features(ind, :);
+            end
+
+            % The measurement is the best circle.
+            measurement = [center(1, :) radius(1)]';
+        end
+    end
+
+    % Finds the circles in the image that are good.
+    function [measurement, features] = initializeJoint(state_prior, covariance_prior, weights)
+        % Estimate the position of the next circle based on the prior information.
+        center_range = round([.8 1.2]*state_prior(3));
+        % HACK: keep the smaller circle from collapsing into itself.
+        if (center_range(1) < 40)
+            center_range = [40 center_range(2)];
+        end
+        % HACK: smaller circles have a stricter threshold.
+        if state_prior(3) < 80
+            [center, radius, metric] = imfindcircles(I, center_range, 'EdgeThreshold', .1, 'Sensitivity', .98);
+        else
+            [center, radius, metric] = imfindcircles(I, center_range, 'EdgeThreshold', .1, 'Sensitivity', .99);
+        end
+
+        measurement = [];
+        features = [];
+        
+        if ~isempty(radius)
+            % Extract the features for each of the circles.
+            features = getTrackingFeatures(I, [center radius metric], state_prior);
+
+            % Determine the score from the learned weights.
+            weights(1) = weights(1)*3; % Boost appearance score.
+            weights(5) = weights(5)/3; % Demote center score.
+            % HACK: larger circles the center is probably wrong anyway.
+            if state_prior(3) > 80
+                weights(5) = 0;
+            end
+            metric = features * weights;
+            
+            % Sort by the metric again.
+            if ~isempty(radius)
+                [~, ind] = sort(metric, 'descend');
+                center = center(ind, :);
+                radius = radius(ind);
+                metric = metric(ind);
+                features = features(ind, :);
+            end
+
+            % We found a bad circle.
+            % HACK: smaller circles haves stricter threshold.
+            if (metric < -30 & state_prior(3) < 80) | (state_prior(3) > 80 & metric < -30)
+                measurement = [];
+                features = [];
+                return;
+            end
+
+            % The measurement is the best circle.
+            measurement = [center(1, :) radius(1)]';
+        end
     end
 end
