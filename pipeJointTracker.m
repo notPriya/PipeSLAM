@@ -6,18 +6,37 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
     A = [eye(3) eye(3); zeros(3) eye(3)];
     H = [eye(3) zeros(3)];
     
+%     % Uncertianty of the state (robot movement).
+%     Q = [0 0 0 0 0 0;
+%          0 0 0 0 0 0;
+%          0 0 0 0 0 0;
+%          0 0 0 10 0 0;
+%          0 0 0 0 10 0;
+%          0 0 0 0 0 10];
+%     
+%     % Uncertainty of the measurement (circle prediction).
+%     % TODO: function of radius.
+%     R = [10 0 0;
+%          0 10 0;
+%          0 0 20];
+
     % Uncertianty of the state (robot movement).
-    Q = [0 0 0 0 0 0;
-         0 0 0 0 0 0;
-         0 0 0 0 0 0;
-         0 0 0 10 0 0;
-         0 0 0 0 10 0;
-         0 0 0 0 0 10];
+    Q = previous_circle.state(3) * [0 0 0 0 0 0;
+                                    0 0 0 0 0 0;
+                                    0 0 0 0 0 0;
+                                    0 0 0 .1 0 0;
+                                    0 0 0 0 .1 0;
+                                    0 0 0 0 0 .2]
     
     % Uncertainty of the measurement (circle prediction).
-    R = [10 0 0;
-         0 10 0;
-         0 0 20];
+    % TODO: function of radius.
+    R = 1/previous_circle.state(3) * [500 0 0;
+                                      0 500 0;
+                                      0 0 1000]
+     
+    % Measurement rejection Threshold
+    % TODO: function of radius?
+    error_threshold = 20;
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Time Update (Prediction)          %
@@ -44,8 +63,30 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
         found_circle = true;
     else
         [measurement, features] = initializeJoint(state_prior, covariance_prior, weights);
+        % HACK: this makes sure that we arent going in the direction of the
+        % update to our measurement in the next step.
+        if ~isempty(measurement)
+            state_prior(1:3) = measurement;
+        end
         found_circle = ~isempty(measurement);
     end
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Outlier Rejection                 %
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    if ~isempty(measurement)
+        S = H * covariance_prior * H' + R;
+        error = measurement - H * state_prior;
+        
+        weighted_norm = (error'/S)*error;
+        
+        if weighted_norm > error_threshold
+            measurement = [];
+            found_circle = previous_circle.real;
+        end
+    end
+    
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Measurement Update (Correction)   %
@@ -82,14 +123,18 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
     % Visualize the found circles %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     if ~evaluation
+        % Take square root of the covariance. We take simple square root.
+        sigma = sqrt(covariance_posterior);
+        
+        % Show the image.
 %         imshow(I);
         hold on;
         % Draw the center covariance.
         rectangle('Position', ...
-                  [state_posterior(1)-covariance_posterior(1,1)/2 ...
-                   state_posterior(2)-covariance_posterior(2,2)/2 ...
-                   covariance_posterior(1,1) ...
-                   covariance_posterior(2,2)], ...
+                  [state_posterior(1)-sigma(1,1) ...
+                   state_posterior(2)-sigma(2,2) ...
+                   2*sigma(1,1) ...
+                   2*sigma(2,2)], ...
                   'LineWidth',2,'LineStyle','-', 'EdgeColor', 'c');
         hold off;
 
@@ -98,8 +143,8 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
         % Dont do 1 sigma bounds for fake circles because they are often
         % negative.
         if found_circle
-            viscircles(state_posterior(1:2)', state_posterior(3)-covariance_posterior(3,3), 'EdgeColor', 'b','LineStyle','--');
-            viscircles(state_posterior(1:2)', state_posterior(3)+covariance_posterior(3,3), 'EdgeColor', 'b','LineStyle','--');
+            viscircles(state_posterior(1:2)', state_posterior(3)-2*sigma(3,3), 'EdgeColor', 'b','LineStyle','--');
+            viscircles(state_posterior(1:2)', state_posterior(3)+2*sigma(3,3), 'EdgeColor', 'b','LineStyle','--');
         end
         viscircles(state_posterior(1:2)', state_posterior(3), 'EdgeColor', 'b');
     end

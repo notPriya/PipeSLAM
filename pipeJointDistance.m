@@ -39,10 +39,10 @@ alpha = .7;  % Weight on the larger circle estimation
 evaluation = false;
 
 % Setup stuff for making a movie.
-doMovie = true;
+doMovie = false;
 if doMovie
     % Open a movie object.
-    movie = VideoWriter('pipe_joint_tracking1.avi');
+    movie = VideoWriter('pipe_joint_tracking3.avi');
     movie.FrameRate = 15;
     open(movie);
     evaluation = false;
@@ -77,8 +77,9 @@ for i = start:n
     %%%%%%%%%%%%%%%%%%%%%%%%%
     % Extract the frame we want to process.
     I = frames(:,:,:, i);
+    I(375:413, 231:400, :) = 0; % Black out the odometry box.
     if ~evaluation
-        imshow(frames(:,:,:, i));
+        imshow(I);
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -91,7 +92,9 @@ for i = start:n
     if ~isempty(small_circle)
         % HACK: if the smaller circle is fake, make the center the same as
         % the bigger one.
-        small_circle.state(1:2) = big_circle.state(1:2);
+        if ~small_circle.real
+            small_circle.state(1:2) = big_circle.state(1:2);
+        end
         [small_circle] = pipeJointTracker(I, weights, small_circle, evaluation);
     end
  
