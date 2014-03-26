@@ -5,20 +5,6 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
     % Model parameters.
     A = [eye(3) eye(3); zeros(3) eye(3)];
     H = [eye(3) zeros(3)];
-    
-%     % Uncertianty of the state (robot movement).
-%     Q = [0 0 0 0 0 0;
-%          0 0 0 0 0 0;
-%          0 0 0 0 0 0;
-%          0 0 0 10 0 0;
-%          0 0 0 0 10 0;
-%          0 0 0 0 0 10];
-%     
-%     % Uncertainty of the measurement (circle prediction).
-%     % TODO: function of radius.
-%     R = [10 0 0;
-%          0 10 0;
-%          0 0 20];
 
     % Uncertianty of the state (robot movement).
     Q = previous_circle.state(3) * [0 0 0 0 0 0;
@@ -26,13 +12,13 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
                                     0 0 0 0 0 0;
                                     0 0 0 .1 0 0;
                                     0 0 0 0 .1 0;
-                                    0 0 0 0 0 .2]
+                                    0 0 0 0 0 .2];
     
     % Uncertainty of the measurement (circle prediction).
     % TODO: function of radius.
-    R = 1/previous_circle.state(3) * [500 0 0;
-                                      0 500 0;
-                                      0 0 1000]
+    R = abs(previous_circle.state(3) - 100) * [.5 0 0;
+                                               0 .5 0;
+                                               0 0 1];
      
     % Measurement rejection Threshold
     % TODO: function of radius?
@@ -130,23 +116,26 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
 %         imshow(I);
         hold on;
         % Draw the center covariance.
-        rectangle('Position', ...
-                  [state_posterior(1)-sigma(1,1) ...
-                   state_posterior(2)-sigma(2,2) ...
-                   2*sigma(1,1) ...
-                   2*sigma(2,2)], ...
-                  'LineWidth',2,'LineStyle','-', 'EdgeColor', 'c');
+        if found_circle
+            rectangle('Position', ...
+                      [state_posterior(1)-sigma(1,1) ...
+                       state_posterior(2)-sigma(2,2) ...
+                       2*sigma(1,1) ...
+                       2*sigma(2,2)], ...
+                      'LineWidth',2,'LineStyle','-', 'EdgeColor', 'c');
+        end 
         hold off;
 
         % Draw the final circle and the one sigma bound.
         viscircles(measurement(1:2)', measurement(3), 'EdgeColor', 'g');
+        viscircles(state_posterior(1:2)', state_posterior(3), 'EdgeColor', 'k', 'LineStyle','--');
         % Dont do 1 sigma bounds for fake circles because they are often
         % negative.
         if found_circle
             viscircles(state_posterior(1:2)', state_posterior(3)-2*sigma(3,3), 'EdgeColor', 'b','LineStyle','--');
             viscircles(state_posterior(1:2)', state_posterior(3)+2*sigma(3,3), 'EdgeColor', 'b','LineStyle','--');
+            viscircles(state_posterior(1:2)', state_posterior(3), 'EdgeColor', 'b');
         end
-        viscircles(state_posterior(1:2)', state_posterior(3), 'EdgeColor', 'b');
     end
     
     
@@ -217,11 +206,11 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
     % Finds the circles in the image that are close to the prior.
     function [measurement, features] = trackJoint(state_prior, covariance_prior, weights)
         % Estimate the position of the next circle based on the prior information.
-        center_range = round([.95 1.05]*state_prior(3));
+        center_range = round([.95 1.06]*state_prior(3));
         center_range = [min(-5+floor(state_prior(3)), center_range(1)) max(5+ceil(state_prior(3)), center_range(2))];
         % HACK: keep the smaller circle from collapsing into itself.
         if (center_range(1) < 40)
-            center_range = [40 center_range(2)];
+            center_range = [40 max(center_range(2), 45)];
         end
         [center, radius, metric] = imfindcircles(I, center_range, 'EdgeThreshold', .05, 'Sensitivity', .995);
 
@@ -255,7 +244,7 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
         center_range = round([.8 1.2]*state_prior(3));
         % HACK: keep the smaller circle from collapsing into itself.
         if (center_range(1) < 40)
-            center_range = [40 center_range(2)];
+            center_range = [40 max(center_range(2), 45)];
         end
         % HACK: smaller circles have a stricter threshold.
         if state_prior(3) < 80
@@ -275,7 +264,7 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
             weights(1) = weights(1)*3; % Boost appearance score.
             weights(5) = weights(5)/3; % Demote center score.
             % HACK: larger circles the center is probably wrong anyway.
-            if state_prior(3) > 80
+            if state_prior(3) > 90
                 weights(5) = 0;
             end
             metric = features * weights;
@@ -290,8 +279,8 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
             end
 
             % We found a bad circle.
-            % HACK: smaller circles haves stricter threshold.
-            if (metric < -30 & state_prior(3) < 80) | (state_prior(3) > 80 & metric < -30)
+            % HACK: smaller circles have lower threshold.
+            if (metric < -25 & state_prior(3) < 90) | (metric < -30 & state_prior(3) > 90) 
                 measurement = [];
                 features = [];
                 return;

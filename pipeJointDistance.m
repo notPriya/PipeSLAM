@@ -6,7 +6,7 @@ if ~exist('frames', 'var')
     clc;
 
     % Load the frames.
-    load('pipe6.mat');
+    load('pipe5.mat');
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%
@@ -19,7 +19,7 @@ camera_f = 510; %364.2857;  % MAGIC
 
 % Constants for loop.
 n = size(frames, 4);
-start = 300;
+start = 400;
 
 % Weights on the features for picking best measurement.
 weights = [1.73962175432486;0.705204876297886;0;3.34010706169493;6.71403253431558];
@@ -42,7 +42,7 @@ evaluation = false;
 doMovie = false;
 if doMovie
     % Open a movie object.
-    movie = VideoWriter('pipe_joint_tracking3.avi');
+    movie = VideoWriter('pipe_joint_tracking4.avi');
     movie.FrameRate = 15;
     open(movie);
     evaluation = false;
@@ -76,10 +76,10 @@ for i = start:n
     % Get Frame             %
     %%%%%%%%%%%%%%%%%%%%%%%%%
     % Extract the frame we want to process.
-    I = frames(:,:,:, i);
-    I(375:413, 231:400, :) = 0; % Black out the odometry box.
+    I = frames(1:376,:,:, i);
+%     I(375:413, 231:400, :) = 0; % Black out the odometry box.
     if ~evaluation
-        imshow(I);
+        imshow(frames(:,:,:, i));
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%
@@ -171,9 +171,9 @@ for i = start:n
     %%%%%%%%%%%%%%%%%%%%%%%%%
 
     % Add text displaying the distance traveled.
-    if ~evaluation
-        text(447, 90, sprintf('%.1f ft', pos(i, 3)/10), 'FontSize', 30, 'Color', 'blue');
-    end
+%     if ~evaluation
+%         text(447, 90, sprintf('%.1f ft', pos(i, 3)/10), 'FontSize', 30, 'Color', 'blue');
+%     end
     
     if doMovie
         % Write the frame to the video.
