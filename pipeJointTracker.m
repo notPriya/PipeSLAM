@@ -12,17 +12,21 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
                                     0 0 0 0 0 0;
                                     0 0 0 .1 0 0;
                                     0 0 0 0 .1 0;
-                                    0 0 0 0 0 .2];
+                                    0 0 0 0 0 .1];
     
     % Uncertainty of the measurement (circle prediction).
-    % TODO: function of radius.
-    R = abs(previous_circle.state(3) - 100) * [.5 0 0;
-                                               0 .5 0;
-                                               0 0 1];
+    % Uses a trough-like function centered around 110, with width 20,
+    % and height 20.
+    %    \               /  ___ 30
+    %     \______|______/   ___ 20
+    %    100    110    120
+    scale = min(abs(previous_circle.state(3) - 110)-10, 0) + 20;
+    R = scale * [.5 0 0;
+                 0 .5 0;
+                 0 0 1];
      
     % Measurement rejection Threshold
-    % TODO: function of radius?
-    error_threshold = 20;
+    error_threshold = 15;
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Time Update (Prediction)          %
@@ -37,12 +41,6 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Take a measurement                %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%     % Smooth the image.
-%     G = fspecial('Gaussian', 10, 5);
-%     I2 = imfilter(I, G, 'replicate');
-%     [~, t] = edge(rgb2gray(I2));
-%     I2 = edge(rgb2gray(I2), 'canny', t + [.1 .3]);
     
     if previous_circle.real
         [measurement, features] = trackJoint(state_prior, covariance_prior, weights);
@@ -132,7 +130,9 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
         % Dont do 1 sigma bounds for fake circles because they are often
         % negative.
         if found_circle
-            viscircles(state_posterior(1:2)', state_posterior(3)-2*sigma(3,3), 'EdgeColor', 'b','LineStyle','--');
+            if state_posterior(3) > 2*sigma(3,3)
+                viscircles(state_posterior(1:2)', state_posterior(3)-2*sigma(3,3), 'EdgeColor', 'b','LineStyle','--');
+            end
             viscircles(state_posterior(1:2)', state_posterior(3)+2*sigma(3,3), 'EdgeColor', 'b','LineStyle','--');
             viscircles(state_posterior(1:2)', state_posterior(3), 'EdgeColor', 'b');
         end
@@ -142,7 +142,7 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
     %%%%%%%%%%%%%%%%%%%%%%%%%
     % Helper Functions      %
     %%%%%%%%%%%%%%%%%%%%%%%%%
-    
+       
     % Computes features for a new set of circles.
     function f = getTrackingFeatures(I, new_circles, predicted_circle)
         % Number of datapoints.
@@ -158,9 +158,6 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
         distance_max = 7000;
         % Approximate maximum that the radius can be.
         radius_max = 10;
-        % Number of pixels the image center must be from the border of the
-        % circle.
-        center_containment_threshold = 5;
         
         %%%%%
         % Feature Computation
@@ -172,13 +169,14 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
         % If the we are further than the approximate max, give a low score.
         center_distance(center_distance <= 0) = epsilon;
                 
-        % Compute binary feature of whether the circle contains the Image
-        % center.
-        distance = sqrt((new_circles(:, 1) - size(I, 2)/2).^2 + (new_circles(:,2) - size(I, 1)/2).^2);
-        distance = new_circles(:, 3) - distance;
-        contains_center = distance > center_containment_threshold;   
-        % If the we do not contain the center, give a low score.
-        contains_center(contains_center <= 0) = epsilon;
+        % Compute binary feature of whether the circle contains the dark blob.
+        % Find the dark blob.
+        ind = findDarkRegions(I);
+        % Determine if it is contained.
+        dist = pdist2(new_circles(:, 1:2), ind);
+        contained = dist - repmat(new_circles(:, 3), 1, size(ind, 1)) < 0;
+        % Score is the percentage of black blob you contain.
+        black_blob_score = (sum(contained, 2)+epsilon)/(size(contained, 2)+epsilon);
 
         % Compute the features for difference to predicted circle.
         % This one does difference from the center of the predicted circle.
@@ -199,7 +197,7 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
         %      contains center of Image
         %      difference in radii of previous timestep
         %      difference in centers of previous timestep]
-        f = [new_circles(:, 4) center_distance contains_center radius_diff center_diff];
+        f = [new_circles(:, 4) center_distance black_blob_score radius_diff center_diff];
         f = log(f);  % Compute the negative log of scores.
     end
 
@@ -263,10 +261,6 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
             % Determine the score from the learned weights.
             weights(1) = weights(1)*3; % Boost appearance score.
             weights(5) = weights(5)/3; % Demote center score.
-            % HACK: larger circles the center is probably wrong anyway.
-            if state_prior(3) > 90
-                weights(5) = 0;
-            end
             metric = features * weights;
             
             % Sort by the metric again.
@@ -280,7 +274,7 @@ function [new_circle, features] = pipeJointTracker(I, weights, previous_circle, 
 
             % We found a bad circle.
             % HACK: smaller circles have lower threshold.
-            if (metric < -25 & state_prior(3) < 90) | (metric < -30 & state_prior(3) > 90) 
+            if (metric < -23 & state_prior(3) < 90) | (metric < -30 & state_prior(3) > 90) 
                 measurement = [];
                 features = [];
                 return;

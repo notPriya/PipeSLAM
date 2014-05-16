@@ -1,12 +1,17 @@
-clc;
+clc; close all;
+
+pipe_name = 'pipe2';
+
 if ~exist('frames', 'var')
     % Distance using Pipe Joint tracking.
     close all;
     clear all;
     clc;
 
+    pipe_name = 'pipe2';
+    
     % Load the frames.
-    load('pipe5.mat');
+    load([pipe_name '.mat']);
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%
@@ -15,34 +20,34 @@ end
 
 % Constants based on pipe video.
 pipe_radius = 5;
-camera_f = 510; %364.2857;  % MAGIC
+camera_f = 510;  % MAGIC
 
 % Constants for loop.
 n = size(frames, 4);
-start = 400;
+start = 1;
 
 % Weights on the features for picking best measurement.
-weights = [1.73962175432486;0.705204876297886;0;3.34010706169493;6.71403253431558];
+weights = [1.73962175432486;0;3;3.34010706169493;6.71403253431558];
 
 % Smaller circle intialization.
 small_radius_guess = 55;  % MAGIC.
 small_delta_radius_guess = .3; % MAGIC.
 
 % Number on the distance counter in the first frame.
-initial_camera_distance = 1339;
+initial_camera_distance = 259;
 
 % Interpolation factor on estimating distance using the larger and
 % smaller tracked circles.
 alpha = .7;  % Weight on the larger circle estimation
 
 % Flag for visualizing.
-evaluation = false;
+evaluation = true;
 
 % Setup stuff for making a movie.
 doMovie = false;
 if doMovie
     % Open a movie object.
-    movie = VideoWriter('pipe_joint_tracking4.avi');
+    movie = VideoWriter('pipe_joint_tracking7.avi');
     movie.FrameRate = 15;
     open(movie);
     evaluation = false;
@@ -76,8 +81,8 @@ for i = start:n
     % Get Frame             %
     %%%%%%%%%%%%%%%%%%%%%%%%%
     % Extract the frame we want to process.
-    I = frames(1:376,:,:, i);
-%     I(375:413, 231:400, :) = 0; % Black out the odometry box.
+%     I = frames(1:376,:,:, i);
+    I = frames(:,:,:, i);
     if ~evaluation
         imshow(frames(:,:,:, i));
     end
@@ -86,6 +91,14 @@ for i = start:n
     % Track Circles         %
     %%%%%%%%%%%%%%%%%%%%%%%%%
     % Track the bigger circle.
+    % HACK: if the circle is not real, move it towards the black blob in
+    % the image.
+    if ~big_circle.real
+        ind = findDarkRegions(I);
+        centroid = median(ind)';  % More outlier insensitive than mean.
+        velocity = (centroid - big_circle.state(1:2))/100;
+        big_circle.state(4:5) = velocity;
+    end
     [big_circle] = pipeJointTracker(I, weights, big_circle, evaluation);
         
     % Track the smaller circle.
@@ -198,9 +211,13 @@ end
 
 %% Display position results.
 
-load('pipe1_groundtruth.mat');
+load([pipe_name '_groundtruth.mat']);
 
 figure;
 hold on;
 plot(pos, 'LineWidth', 2);
 plot(ground_truth, 'k', 'LineWidth', 2);
+
+% Calculate the error per unit distance.
+mean(abs(ground_truth(:) - pos(:, 3)))
+(ground_truth(end) - pos(end, 3))/(ground_truth(1) - ground_truth(end))
