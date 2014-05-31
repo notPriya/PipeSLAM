@@ -1,14 +1,14 @@
 clc; close all;
 
-pipe_name = 'pipe2';
+% pipe_name = 'pipe2';
 
 if ~exist('frames', 'var')
     % Distance using Pipe Joint tracking.
     close all;
-    clear all;
+%     clear all;
     clc;
 
-    pipe_name = 'pipe2';
+%     pipe_name = 'pipe2';
     
     % Load the frames.
     load([pipe_name '.mat']);
@@ -23,11 +23,12 @@ pipe_radius = 5;
 camera_f = 510;  % MAGIC
 
 % Constants for loop.
-n = size(frames, 4);
+% n = size(frames, 4);
+n = 1;
 start = 1;
 
 % Weights on the features for picking best measurement.
-weights = [1.73962175432486;0;3;3.34010706169493;6.71403253431558];
+weights = [1.73962175432486;0;4;3.34010706169493;6.71403253431558];
 
 % Smaller circle intialization.
 small_radius_guess = 55;  % MAGIC.
